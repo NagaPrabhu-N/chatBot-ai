@@ -10,6 +10,19 @@ const User = require('./models/User');
 const Chat = require('./models/Chat');
 
 const app = express();
+
+// --- 1. CRITICAL CORS SETUP ---
+// Allow specific origins and handle Preflight (OPTIONS) requests
+app.use(cors({
+  origin: ["https://chat-bot-ai-w4c5.vercel.app", "http://localhost:3000"], // Add your correct Vercel Frontend URL here
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Handle preflight requests explicitly for all routes
+app.options('*', cors());
+
 app.use(express.json());
 
 // Connect DB
@@ -17,12 +30,8 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));
 
+
 // --- AUTH ROUTES ---
-app.use(cors({
-  origin: ["https://chat-bot-ai-w4c5.vercel.app"], // Add your Vercel frontend URL
-  methods: ["POST", "GET"],
-  credentials: true
-}));
 
 // Signup
 app.post('/signup', async (req, res) => {
@@ -54,6 +63,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
+
 // --- CHAT ROUTES ---
 
 // Initialize Gemini
@@ -68,7 +78,6 @@ app.get('/chat/history', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     let chat = await Chat.findOne({ userId: decoded.id });
     if (!chat) {
-      // Return empty history if new user
       return res.json([]);
     }
     res.json(chat.history);
@@ -78,8 +87,6 @@ app.get('/chat/history', async (req, res) => {
 });
 
 // Send Message to Gemini
-// ... inside server.js
-
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
   const token = req.headers.authorization?.split(' ')[1];
@@ -97,15 +104,14 @@ app.post('/chat', async (req, res) => {
     }
 
     // 2. STRICT CLEANING: Convert Mongoose objects to plain JS objects
-    // Gemini crashes if you send database fields like '_id'
     const historyForGemini = userChat.history.map(entry => ({
       role: entry.role,
-      parts: [{ text: entry.parts[0].text }] // Ensure strict format
+      parts: [{ text: entry.parts[0].text }]
     }));
 
-    // 3. Start Chat Session with CLEAN history
-    // Use "gemini-1.5-flash" (it is faster and more reliable for free tier)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // 3. Start Chat Session
+    // Fixed Model Name: "gemini-2.5-flash" does not exist yet. Use 1.5-flash.
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const chat = model.startChat({
       history: historyForGemini,
@@ -113,7 +119,6 @@ app.post('/chat', async (req, res) => {
 
     // 4. Send Message
     let msgToSend = message;
-    // Add context only for the very first message
     if (userChat.history.length === 0) {
       msgToSend = `My name is ${username}. ${message}`;
     }
@@ -134,12 +139,17 @@ app.post('/chat', async (req, res) => {
     res.json({ text });
 
   } catch (error) {
-    console.error("Gemini Error:", error); // This will print the REAL error in your terminal
+    console.error("Gemini Error:", error);
     res.status(500).json({ error: 'Gemini API Error' });
   }
 });
 
+// --- VERCEL EXPORT ---
+// For Vercel, we MUST export the app. 
+// We ONLY listen if running locally (not in production)
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
-app.listen(5000, () => console.log('Server running on port 5000'));
-
-// module.exports = app;
+module.exports = app;
