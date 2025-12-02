@@ -6,8 +6,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const User = require('./models/User');
-const Chat = require('./models/Chat');
+const User = require('../models/User');
+const Chat = require('../models/Chat');
 
 const app = express();
 
