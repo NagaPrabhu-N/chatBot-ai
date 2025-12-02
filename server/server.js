@@ -19,7 +19,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 // --- AUTH ROUTES ---
 app.use(cors({
-  origin: ["https://chat-bot-ai-w4c5.vercel.app/"], // Add your Vercel frontend URL
+  origin: ["https://chat-bot-ai-w4c5.vercel.app"], // Add your Vercel frontend URL
   methods: ["POST", "GET"],
   credentials: true
 }));
