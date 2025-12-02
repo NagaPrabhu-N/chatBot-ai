@@ -9,19 +9,44 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const User = require('./models/User');
 const Chat = require('./models/Chat');
 
+// ... imports
+
 const app = express();
 
-// --- 1. CRITICAL CORS SETUP ---
-// Allow specific origins and handle Preflight (OPTIONS) requests
+// --- DYNAMIC CORS CONFIGURATION ---
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://chat-bot-ai-w4c5.vercel.app"
+];
+
 app.use(cors({
-  origin: ["https://chat-bot-ai-w4c5.vercel.app", "http://localhost:3000"], // Add your correct Vercel Frontend URL here
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Allow any Vercel deployment (preview or production)
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
+
+    // Allow localhost
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Block everything else
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
 
-// Handle preflight requests explicitly for all routes
+// Handle preflight specifically
 app.options('*', cors());
+
+// ... rest of server.js
+
 
 app.use(express.json());
 
