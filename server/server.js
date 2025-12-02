@@ -19,6 +19,11 @@ const allowedOrigins = [
   "https://chat-bot-ai-w4c5.vercel.app"
 ];
 
+app.get('/', (req, res) => {
+  res.send("Server is running!");
+});
+
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
