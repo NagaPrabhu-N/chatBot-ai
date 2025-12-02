@@ -14,7 +14,7 @@ const app = express();
 // --- 1. DYNAMIC CORS CONFIGURATION ---
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://chat-bot-ai-w4c5.vercel.app"
+  "https://chat-bot-ai-nine-umber.vercel.app/"
 ];
 
 app.use(cors({
