@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import API_URL from '../apiConfig';
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
@@ -23,7 +22,7 @@ export default function Chat() {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get(`${API_URL}/chat/history`,{
+      const res = await axios.get('http://localhost:5000/chat/history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Transform DB format to UI friendly format
@@ -45,7 +44,7 @@ export default function Chat() {
     setInput('');
 
     try {
-      const res = await axios.post(`${API_URL}/chat`, 
+      const res = await axios.post('http://localhost:5000/chat', 
         { message: userMessage.text }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );

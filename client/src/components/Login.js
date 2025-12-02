@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import API_URL from '../apiConfig';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,7 +10,7 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${API_URL}/login`, { email, password });
+      const res = await axios.post('http://localhost:5000/login', { email, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('username', res.data.username);
       // Reload/Redirect to chat to update auth state in App

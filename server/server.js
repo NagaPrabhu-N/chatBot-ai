@@ -6,48 +6,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const User = require('../models/User');
-const Chat = require('../models/Chat');
+const User = require('./models/User');
+const Chat = require('./models/Chat');
 
 const app = express();
-
-// --- 1. DYNAMIC CORS CONFIGURATION ---
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://chat-bot-ai-sable.vercel.app"
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    // Allow any Vercel subdomain
-    if (origin.endsWith(".vercel.app") || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    return callback(new Error('Not allowed by CORS'));
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  credentials: true
-}));
-
-// Handle preflight requests for ALL routes
-app.options('*', cors());
-
+app.use(cors());
 app.use(express.json());
-
-// --- 2. HEALTH CHECK ROUTE (Test if server is alive) ---
-app.get('/', (req, res) => {
-  res.send("Server is running successfully!");
-});
 
 // Connect DB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));
-
 
 // --- AUTH ROUTES ---
 
@@ -60,7 +29,6 @@ app.post('/signup', async (req, res) => {
     await user.save();
     res.status(201).json({ message: 'User created' });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Error creating user' });
   }
 });
@@ -78,11 +46,9 @@ app.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET);
     res.json({ token, username: user.username });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
-
 
 // --- CHAT ROUTES ---
 
@@ -98,6 +64,7 @@ app.get('/chat/history', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     let chat = await Chat.findOne({ userId: decoded.id });
     if (!chat) {
+      // Return empty history if new user
       return res.json([]);
     }
     res.json(chat.history);
@@ -107,6 +74,8 @@ app.get('/chat/history', async (req, res) => {
 });
 
 // Send Message to Gemini
+// ... inside server.js
+
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
   const token = req.headers.authorization?.split(' ')[1];
@@ -117,24 +86,30 @@ app.post('/chat', async (req, res) => {
     const userId = decoded.id;
     const username = decoded.username;
 
+    // 1. Retrieve existing chat history
     let userChat = await Chat.findOne({ userId });
     if (!userChat) {
       userChat = new Chat({ userId, history: [] });
     }
 
+    // 2. STRICT CLEANING: Convert Mongoose objects to plain JS objects
+    // Gemini crashes if you send database fields like '_id'
     const historyForGemini = userChat.history.map(entry => ({
       role: entry.role,
-      parts: [{ text: entry.parts[0].text }]
+      parts: [{ text: entry.parts[0].text }] // Ensure strict format
     }));
 
-    // Fixed Model Name: 1.5-flash
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // 3. Start Chat Session with CLEAN history
+    // Use "gemini-1.5-flash" (it is faster and more reliable for free tier)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const chat = model.startChat({
       history: historyForGemini,
     });
 
+    // 4. Send Message
     let msgToSend = message;
+    // Add context only for the very first message
     if (userChat.history.length === 0) {
       msgToSend = `My name is ${username}. ${message}`;
     }
@@ -143,6 +118,7 @@ app.post('/chat', async (req, res) => {
     const response = await result.response;
     const text = response.text();
 
+    // 5. Save new interaction to DB
     const newInteraction = [
       { role: 'user', parts: [{ text: message }] },
       { role: 'model', parts: [{ text: text }] }
@@ -154,16 +130,12 @@ app.post('/chat', async (req, res) => {
     res.json({ text });
 
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("Gemini Error:", error); // This will print the REAL error in your terminal
     res.status(500).json({ error: 'Gemini API Error' });
   }
 });
 
-// --- VERCEL EXPORT ---
-// For Vercel, we MUST export the app. 
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
 
-module.exports = app;
+app.listen(5000, () => console.log('Server running on port 5000'));
+
+// module.exports = app;
