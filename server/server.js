@@ -10,7 +10,6 @@ const User = require('./models/User');
 const Chat = require('./models/Chat');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
 // Connect DB
